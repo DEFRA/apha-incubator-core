@@ -1,0 +1,27 @@
+{
+  "name": "apha-incubator-core",
+  "version": "0.0.0",
+  "description": "Developer toolkit for running the APHA Risk Insights microservices together locally",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "setup": "./scripts/setup.sh",
+    "update": "./scripts/update.sh",
+    "update:no-build": "./scripts/update.sh --no-build",
+    "start": "./scripts/start.sh",
+    "start:build": "./scripts/start.sh --build",
+    "start:logs": "./scripts/start.sh --logs",
+    "start:debug": "./scripts/start.sh --debug",
+    "stop": "./scripts/stop.sh",
+    "stop:clean": "./scripts/stop.sh --clean",
+    "restart": "npm run stop && npm run start",
+    "status": "./scripts/status.sh",
+    "logs": "./scripts/logs.sh",
+    "test": "./scripts/test.sh"
+  },
+  "author": "Defra DDTS",
+  "license": "OGL-UK-3.0"
+}
