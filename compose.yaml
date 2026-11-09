@@ -1,0 +1,113 @@
+# Runs every APHA Risk Insights service together.
+#
+# Each service is extended from its own repo's compose.yaml, so images, mounts and
+# environment stay owned by the service.
+#
+# Networks:
+# - apha-risk is shared. Only the services and floci join it, so services can call
+#   each other and share one AWS emulator.
+# - Each service has a private network for the infrastructure it owns (mongodb,
+#   redis etc). Infra is named <service>-<infra> and aliased to the hostname the
+#   service expects (e.g. `mongodb`) on that private network only, so two services
+#   can each own a `mongodb` without clashing, and can't reach each other's.
+#
+# Service repos are expected as siblings of this repo. Override with SERVICES_DIR in .env.
+name: apha-risk-insights
+
+x-aws-local: &aws-local
+  AWS_REGION: eu-west-2
+  AWS_DEFAULT_REGION: eu-west-2
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  # Containers reach floci by service name, not localhost
+  AWS_ENDPOINT_URL: http://floci:4566
+
+services:
+  # Shared AWS emulator. It runs each service's own init scripts
+  # (see compose/floci/start.d/00-run-service-scripts.sh)
+  floci:
+    extends:
+      file: ${SERVICES_DIR:-..}/apha-risk-insights-backend/compose.yaml
+      service: floci
+    volumes: !override
+      - ./compose/floci/start.d:/etc/floci/init/start.d:ro
+      - ${SERVICES_DIR:-..}/apha-risk-insights-backend/compose/floci/start.d:/etc/floci/init/services/apha-risk-insights-backend:ro
+      - ${SERVICES_DIR:-..}/apha-risk-insights-frontend/compose/floci/start.d:/etc/floci/init/services/apha-risk-insights-frontend:ro
+    ports:
+      - '4566:4566'
+
+  # --- apha-risk-insights-backend -------------------------------------------
+
+  apha-risk-insights-backend:
+    extends:
+      file: ${SERVICES_DIR:-..}/apha-risk-insights-backend/compose.yaml
+      service: apha-risk-insights-backend
+    links: !reset []
+    depends_on: !override
+      floci:
+        condition: service_healthy
+      apha-risk-insights-backend-mongodb:
+        condition: service_healthy
+    environment:
+      <<: *aws-local
+    networks:
+      - apha-risk
+      - apha-risk-insights-backend
+    ports:
+      - '3001:3001'
+      - '9229:9229'
+
+  apha-risk-insights-backend-mongodb:
+    extends:
+      file: ${SERVICES_DIR:-..}/apha-risk-insights-backend/compose.yaml
+      service: mongodb
+    volumes:
+      - apha-risk-insights-backend-mongodb-data:/data
+    networks: !override
+      apha-risk-insights-backend:
+        aliases: [mongodb]
+    ports:
+      - '27017:27017'
+
+  # --- apha-risk-insights-frontend ------------------------------------------
+
+  apha-risk-insights-frontend:
+    extends:
+      file: ${SERVICES_DIR:-..}/apha-risk-insights-frontend/compose.yaml
+      service: apha-risk-insights-frontend
+    links: !reset []
+    depends_on: !override
+      floci:
+        condition: service_healthy
+      apha-risk-insights-frontend-redis:
+        condition: service_healthy
+    environment:
+      <<: *aws-local
+    networks:
+      - apha-risk
+      - apha-risk-insights-frontend
+    ports:
+      - '3000:3000'
+      - '9230:9229'
+
+  apha-risk-insights-frontend-redis:
+    extends:
+      file: ${SERVICES_DIR:-..}/apha-risk-insights-frontend/compose.yaml
+      service: redis
+    networks: !override
+      apha-risk-insights-frontend:
+        aliases: [redis]
+    ports:
+      - '6379:6379'
+
+volumes:
+  apha-risk-insights-backend-mongodb-data:
+
+networks:
+  apha-risk:
+    driver: bridge
+    name: apha-risk
+  apha-risk-insights-backend:
+    name: apha-risk-insights-backend-internal
+  apha-risk-insights-frontend:
+    name: apha-risk-insights-frontend-internal
