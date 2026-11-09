@@ -73,12 +73,13 @@ wait_for_health() {
 }
 
 if [ ${#compose_files[@]} -gt 0 ]; then
-  warn "Debug mode: services wait for a debugger on localhost:9229 (backend) and localhost:9230 (frontend)"
+  warn "Debug mode: services wait for a debugger on localhost:9229 (backend), 9230 (frontend) and 9231 (ingestion)"
 else
   info "Waiting for services to be healthy"
   healthy=true
   wait_for_health apha-risk-insights-backend http://localhost:3001/health || healthy=false
   wait_for_health apha-risk-insights-frontend http://localhost:3000/health || healthy=false
+  wait_for_health apha-insights-ingestion http://localhost:3002/health || healthy=false
 fi
 
 cat <<EOF
@@ -87,9 +88,11 @@ ${BOLD}Services${RESET}
   Frontend         http://localhost:3000
   Backend          http://localhost:3001
   Backend API docs http://localhost:3001/documentation
+  Ingestion        http://localhost:3002
 
 ${BOLD}Infrastructure${RESET}
-  MongoDB          mongodb://localhost:27017
+  MongoDB          mongodb://localhost:27017 (backend)
+  MongoDB          mongodb://localhost:27018 (ingestion)
   Redis            localhost:6379
   floci (AWS)      http://localhost:4566
 

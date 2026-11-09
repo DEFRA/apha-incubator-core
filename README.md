@@ -11,12 +11,14 @@ single service.
 | ------------------------------------------------------------------------------------ | --------------------------------------- |
 | [apha-risk-insights-frontend](https://github.com/DEFRA/apha-risk-insights-frontend) | http://localhost:3000                   |
 | [apha-risk-insights-backend](https://github.com/DEFRA/apha-risk-insights-backend)   | http://localhost:3001 (docs at `/documentation`) |
+| [apha-insights-ingestion](https://github.com/DEFRA/apha-insights-ingestion)         | http://localhost:3002                   |
 
-| Infrastructure                       | Address from your machine | Owned by |
-| ------------------------------------ | ------------------------- | -------- |
-| `apha-risk-insights-backend-mongodb` | mongodb://localhost:27017 | backend  |
-| `apha-risk-insights-frontend-redis`  | localhost:6379            | frontend |
-| `floci` (AWS emulator)               | http://localhost:4566     | shared   |
+| Infrastructure                       | Address from your machine | Owned by  |
+| ------------------------------------ | ------------------------- | --------- |
+| `apha-risk-insights-backend-mongodb` | mongodb://localhost:27017 | backend   |
+| `apha-insights-ingestion-mongodb`    | mongodb://localhost:27018 | ingestion |
+| `apha-risk-insights-frontend-redis`  | localhost:6379            | frontend  |
+| `floci` (AWS emulator)               | http://localhost:4566     | shared    |
 
 ## Prerequisites
 
@@ -39,6 +41,7 @@ Services are cloned next to this repo by default:
 ```
 repos/
 ├── apha-incubator-core/
+├── apha-insights-ingestion/
 ├── apha-risk-insights-backend/
 └── apha-risk-insights-frontend/
 ```
@@ -59,7 +62,7 @@ script supports `--help`, e.g. `npm start -- --help`.
 | `npm start`                | Starts everything and waits for each `/health` to respond                      |
 | `npm run start:build`      | Rebuilds images, then starts everything                                        |
 | `npm run start:logs`       | Starts everything, then follows logs                                           |
-| `npm run start:debug`      | Starts node with `--inspect-brk`. Attach to 9229 (backend) or 9230 (frontend)  |
+| `npm run start:debug`      | Starts node with `--inspect-brk`. Attach to 9229 (backend), 9230 (frontend) or 9231 (ingestion) |
 | `npm run stop`             | Stops everything                                                               |
 | `npm run stop:clean`       | Stops everything and deletes volumes (wipes local MongoDB data)                |
 | `npm run restart`          | Stops then starts everything                                                   |
@@ -83,20 +86,20 @@ service keeps owning its image, mounts and environment.
 
 ```
                  apha-risk (shared)
-   ┌──────────────────┬──────────────────┬──────────┐
-   │                  │                  │          │
- backend           frontend           (next)      floci
-   │                  │
-   │ backend-internal │ frontend-internal
-   │                  │
- backend-mongodb   frontend-redis
- (alias: mongodb)  (alias: redis)
+   ┌──────────────────┬──────────────────┬──────────────────┬──────────┐
+   │                  │                  │                  │          │
+ backend           frontend           ingestion           floci
+   │                  │                  │
+   │ backend-internal │ frontend-internal│ ingestion-internal
+   │                  │                  │
+ backend-mongodb   frontend-redis   ingestion-mongodb
+ (alias: mongodb)  (alias: redis)   (alias: mongodb)
 ```
 
 - **`apha-risk` is shared.** Only the services and floci join it, so services
   can call each other by name, e.g. `http://apha-risk-insights-backend:3001`.
 - **Each service has a private network** (`<service>-internal`) for the
-  infrastructure it owns. Infra containers are named `<service>-<infra>`, and on
+  infrastructure it owns. Containers are named for their service, e.g. `backend-mongo-1` and `frontend-redis-1`, and on
   that private network only they also answer to the hostname the service
   already uses (`mongodb`, `redis`). Service code and config don't change, two
   services can each own a `mongodb` without clashing, and no service can reach
@@ -140,8 +143,8 @@ service repo.
        - apha-risk
        - apha-risk-insights-reports
      ports:
-       - '3002:3002'
-       - '9231:9229'
+       - '3003:3003'
+       - '9232:9229'
 
    apha-risk-insights-reports-mongodb:
      extends:
@@ -153,7 +156,7 @@ service repo.
        apha-risk-insights-reports:
          aliases: [mongodb]
      ports:
-       - '27018:27017'
+       - '27019:27017'
    ```
 
    Then add the volume and network:
@@ -167,8 +170,10 @@ service repo.
        name: apha-risk-insights-reports-internal
    ```
 
-   Every host port must be unique: the next MongoDB gets `27018`, the next Redis
-   `6380`, and so on.
+   Every host port must be unique: the next MongoDB gets `27019`, the next Redis
+   `6380`, and so on. The app and debug ports in the example are also taken by
+   the existing services, so pick the next free pair (the ports in use are the
+   `ports:` entries in `compose.yaml`).
 3. If it has floci init scripts, mount its `compose/floci/start.d` into floci
    under `/etc/floci/init/services/<service>`
 4. Add a health check to `start.sh` and rows to the tables above

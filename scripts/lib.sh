@@ -17,6 +17,7 @@ fi
 SERVICES=(
   apha-risk-insights-backend
   apha-risk-insights-frontend
+  apha-insights-ingestion
 )
 
 GITHUB_ORG="${GITHUB_ORG:-DEFRA}"
