@@ -29,10 +29,12 @@ services:
     extends:
       file: ${SERVICES_DIR:-..}/apha-risk-insights-backend/compose.yaml
       service: floci
+    container_name: floci-1
     volumes: !override
       - ./compose/floci/start.d:/etc/floci/init/start.d:ro
       - ${SERVICES_DIR:-..}/apha-risk-insights-backend/compose/floci/start.d:/etc/floci/init/services/apha-risk-insights-backend:ro
       - ${SERVICES_DIR:-..}/apha-risk-insights-frontend/compose/floci/start.d:/etc/floci/init/services/apha-risk-insights-frontend:ro
+      - ${SERVICES_DIR:-..}/apha-insights-ingestion/compose/floci/start.d:/etc/floci/init/services/apha-insights-ingestion:ro
     ports:
       - '4566:4566'
 
@@ -42,6 +44,7 @@ services:
     extends:
       file: ${SERVICES_DIR:-..}/apha-risk-insights-backend/compose.yaml
       service: apha-risk-insights-backend
+    container_name: backend-development
     links: !reset []
     depends_on: !override
       floci:
@@ -61,6 +64,7 @@ services:
     extends:
       file: ${SERVICES_DIR:-..}/apha-risk-insights-backend/compose.yaml
       service: mongodb
+    container_name: backend-mongo-1
     volumes:
       - apha-risk-insights-backend-mongodb-data:/data
     networks: !override
@@ -75,6 +79,7 @@ services:
     extends:
       file: ${SERVICES_DIR:-..}/apha-risk-insights-frontend/compose.yaml
       service: apha-risk-insights-frontend
+    container_name: frontend-development
     links: !reset []
     depends_on: !override
       floci:
@@ -94,14 +99,51 @@ services:
     extends:
       file: ${SERVICES_DIR:-..}/apha-risk-insights-frontend/compose.yaml
       service: redis
+    container_name: frontend-redis-1
     networks: !override
       apha-risk-insights-frontend:
         aliases: [redis]
     ports:
       - '6379:6379'
 
+  # --- apha-insights-ingestion ----------------------------------------------
+
+  apha-insights-ingestion:
+    extends:
+      file: ${SERVICES_DIR:-..}/apha-insights-ingestion/compose.yaml
+      service: apha-insights-ingestion
+    container_name: ingestion-development
+    links: !reset []
+    depends_on: !override
+      floci:
+        condition: service_healthy
+      apha-insights-ingestion-mongodb:
+        condition: service_healthy
+    environment:
+      <<: *aws-local
+    networks:
+      - apha-risk
+      - apha-insights-ingestion
+    ports:
+      - '3002:3002'
+      - '9231:9229'
+
+  apha-insights-ingestion-mongodb:
+    extends:
+      file: ${SERVICES_DIR:-..}/apha-insights-ingestion/compose.yaml
+      service: mongodb
+    container_name: ingestion-mongo-1
+    volumes:
+      - apha-insights-ingestion-mongodb-data:/data
+    networks: !override
+      apha-insights-ingestion:
+        aliases: [mongodb]
+    ports:
+      - '27018:27017'
+
 volumes:
   apha-risk-insights-backend-mongodb-data:
+  apha-insights-ingestion-mongodb-data:
 
 networks:
   apha-risk:
@@ -111,3 +153,5 @@ networks:
     name: apha-risk-insights-backend-internal
   apha-risk-insights-frontend:
     name: apha-risk-insights-frontend-internal
+  apha-insights-ingestion:
+    name: apha-insights-ingestion-internal
