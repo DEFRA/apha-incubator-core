@@ -19,7 +19,10 @@ for service in "${SERVICES[@]}"; do
   branch="$(git -C "$dir" branch --show-current)"
   state=()
   [ -n "$(git -C "$dir" status --porcelain)" ] && state+=("${YELLOW}uncommitted changes${RESET}")
-  if counts="$(git -C "$dir" rev-list --left-right --count "HEAD...@{upstream}" 2>/dev/null)"; then
+  if [ "$(git -C "$dir" for-each-ref --format='%(upstream:track)' "refs/heads/$branch")" = "[gone]" ]; then
+    # Usually a merged branch: its work is on the default branch now
+    state+=("${YELLOW}upstream deleted (switch to $DEFAULT_BRANCH?)${RESET}")
+  elif counts="$(git -C "$dir" rev-list --left-right --count "HEAD...@{upstream}" 2>/dev/null)"; then
     ahead="${counts%%[[:space:]]*}"
     behind="${counts##*[[:space:]]}"
     [ "$ahead" -gt 0 ] && state+=("$ahead ahead")

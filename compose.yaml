@@ -30,7 +30,13 @@ services:
       file: ${SERVICES_DIR:-..}/apha-risk-insights-backend/compose.yaml
       service: floci
     container_name: floci-1
+    environment:
+      # Keep S3 data across restarts, in the floci-data volume
+      FLOCI_STORAGE_MODE: persistent
     volumes: !override
+      - floci-data:/app/data
+      # Seeded into S3 by the ingestion service's own init script
+      - ${SERVICES_DIR:-..}/apha-insights-ingestion/fixtures:/fixtures/wahis:ro
       - ./compose/floci/start.d:/etc/floci/init/start.d:ro
       - ${SERVICES_DIR:-..}/apha-risk-insights-backend/compose/floci/start.d:/etc/floci/init/services/apha-risk-insights-backend:ro
       - ${SERVICES_DIR:-..}/apha-risk-insights-frontend/compose/floci/start.d:/etc/floci/init/services/apha-risk-insights-frontend:ro
@@ -142,6 +148,7 @@ services:
       - '27018:27017'
 
 volumes:
+  floci-data:
   apha-risk-insights-backend-mongodb-data:
   apha-insights-ingestion-mongodb-data:
 

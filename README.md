@@ -64,14 +64,17 @@ script supports `--help`, e.g. `npm start -- --help`.
 | `npm run start:logs`       | Starts everything, then follows logs                                           |
 | `npm run start:debug`      | Starts node with `--inspect-brk`. Attach to 9229 (backend), 9230 (frontend) or 9231 (ingestion) |
 | `npm run stop`             | Stops everything                                                               |
-| `npm run stop:clean`       | Stops everything and deletes volumes (wipes local MongoDB data)                |
+| `npm run stop:clean`       | Stops everything and deletes volumes (wipes local MongoDB and floci data)      |
 | `npm run restart`          | Stops then starts everything                                                   |
+| `npm run seed [-- options]` | Loads sample data: WAHIS fixtures into S3, then the ingestion transform (see [Sample data](#sample-data)) |
 | `npm run status`           | Branch, uncommitted changes and ahead/behind for each repo, plus running containers |
 | `npm run logs [-- service...]` | Follows logs for every service, or the ones named                          |
 | `npm test [-- service...]` | Runs each service's dockerised tests (same as its `npm run docker:test`)       |
 
 `update` only pulls repos that are on `main` with no uncommitted changes. Other
-repos are fetched and left alone, so it never touches work in progress.
+repos are fetched and left alone, so it never touches work in progress. If a
+repo is on another branch, its local `main` is still fast-forwarded, ready for
+when you switch back.
 
 Source code is mounted into the containers, so edits to `src/` reload
 automatically. After changing a service's `package.json`, rebuild with
@@ -114,6 +117,23 @@ side gives two containers answering to `floci` on the same network. Here there
 is one, and `compose/floci/start.d/00-run-service-scripts.sh` runs every
 service's floci init scripts against it. `AWS_ENDPOINT_URL` points at
 `http://floci:4566`, which containers can reach, rather than `localhost`.
+
+floci keeps its data between restarts, in the `floci-data` volume. Init scripts
+run on every start, so they must cope with their resources already existing
+(e.g. check with `aws s3api head-bucket` before `aws s3 mb`). A script that
+fails is reported in `npm run logs -- floci` and the rest still run.
+`npm run stop:clean` wipes the volume.
+
+### Sample data
+
+`npm start` uploads the ingestion service's WAHIS fixtures to
+`s3://apha-insights-ingestion-local/raw/wahis/`, using that service's own floci
+init script. `npm run seed` then runs its WAHIS transform, which writes one
+record per outbreak under `transformed/wahis-outbreak/`. Arguments after `--` go
+to the transform, e.g. `npm run seed -- --limit 5` or `-- --dry-run`.
+
+Both steps skip work that is already done, so `seed` is safe to rerun. To start
+again from nothing: `npm run stop:clean && npm start && npm run seed`.
 
 `start.sh` refuses to start if a service is already running from its own repo
 (for example via `npm run docker:up`), because its containers would clash on
