@@ -12,13 +12,18 @@ single service.
 | [apha-risk-insights-frontend](https://github.com/DEFRA/apha-risk-insights-frontend) | http://localhost:3000                   |
 | [apha-risk-insights-backend](https://github.com/DEFRA/apha-risk-insights-backend)   | http://localhost:3001 (docs at `/documentation`) |
 | [apha-insights-ingestion](https://github.com/DEFRA/apha-insights-ingestion)         | http://localhost:3002                   |
+| [apha-insights-backoffice](https://github.com/DEFRA/apha-insights-backoffice)       | http://localhost:3003                   |
 
-| Infrastructure                       | Address from your machine | Owned by  |
-| ------------------------------------ | ------------------------- | --------- |
-| `apha-risk-insights-backend-mongodb` | mongodb://localhost:27017 | backend   |
-| `apha-insights-ingestion-mongodb`    | mongodb://localhost:27018 | ingestion |
-| `apha-risk-insights-frontend-redis`  | localhost:6379            | frontend  |
-| `floci` (AWS emulator)               | http://localhost:4566     | shared    |
+| Infrastructure                       | Address from your machine | Owned by   |
+| ------------------------------------ | ------------------------- | ---------- |
+| `apha-risk-insights-backend-mongodb` | mongodb://localhost:27017 | backend    |
+| `apha-insights-ingestion-mongodb`    | mongodb://localhost:27018 | ingestion  |
+| `apha-risk-insights-frontend-redis`  | localhost:6379            | frontend   |
+| `apha-insights-backoffice-redis`     | localhost:6380            | backoffice |
+| `floci` (AWS emulator)               | http://localhost:4566     | shared     |
+
+The backoffice listens on 3000 when run from its own repo. Here it is moved to
+3003, because the frontend already uses 3000.
 
 ## Prerequisites
 
@@ -41,6 +46,7 @@ Services are cloned next to this repo by default:
 ```
 repos/
 ├── apha-incubator-core/
+├── apha-insights-backoffice/
 ├── apha-insights-ingestion/
 ├── apha-risk-insights-backend/
 └── apha-risk-insights-frontend/
@@ -62,7 +68,7 @@ script supports `--help`, e.g. `npm start -- --help`.
 | `npm start`                | Starts everything and waits for each `/health` to respond                      |
 | `npm run start:build`      | Rebuilds images, then starts everything                                        |
 | `npm run start:logs`       | Starts everything, then follows logs                                           |
-| `npm run start:debug`      | Starts node with `--inspect-brk`. Attach to 9229 (backend), 9230 (frontend) or 9231 (ingestion) |
+| `npm run start:debug`      | Starts node with `--inspect-brk`. Attach to 9229 (backend), 9230 (frontend), 9231 (ingestion) or 9232 (backoffice) |
 | `npm run stop`             | Stops everything                                                               |
 | `npm run stop:clean`       | Stops everything and deletes volumes (wipes local MongoDB data)                |
 | `npm run restart`          | Stops then starts everything                                                   |
@@ -85,15 +91,15 @@ service keeps owning its image, mounts and environment.
 ### Networks
 
 ```
-                 apha-risk (shared)
-   ┌──────────────────┬──────────────────┬──────────────────┬──────────┐
-   │                  │                  │                  │          │
- backend           frontend           ingestion           floci
-   │                  │                  │
-   │ backend-internal │ frontend-internal│ ingestion-internal
-   │                  │                  │
- backend-mongodb   frontend-redis   ingestion-mongodb
- (alias: mongodb)  (alias: redis)   (alias: mongodb)
+                              apha-risk (shared)
+   ┌───────────────────┬───────────────────┬───────────────────┬─────────────┐
+   │                   │                   │                   │             │
+ backend            frontend            ingestion           backoffice     floci
+   │                   │                   │                   │
+   │ backend-internal  │ frontend-internal │ ingestion-internal│ backoffice-internal
+   │                   │                   │                   │
+ backend-mongodb    frontend-redis      ingestion-mongodb   backoffice-redis
+ (alias: mongodb)   (alias: redis)      (alias: mongodb)    (alias: redis)
 ```
 
 - **`apha-risk` is shared.** Only the services and floci join it, so services
@@ -143,8 +149,8 @@ service repo.
        - apha-risk
        - apha-risk-insights-reports
      ports:
-       - '3003:3003'
-       - '9232:9229'
+       - '3004:3004'
+       - '9233:9229'
 
    apha-risk-insights-reports-mongodb:
      extends:
@@ -170,10 +176,9 @@ service repo.
        name: apha-risk-insights-reports-internal
    ```
 
-   Every host port must be unique: the next MongoDB gets `27019`, the next Redis
-   `6380`, and so on. The app and debug ports in the example are also taken by
-   the existing services, so pick the next free pair (the ports in use are the
-   `ports:` entries in `compose.yaml`).
+   Every host port must be unique: the next app port is `3004`, the next debug
+   port `9233`, the next MongoDB `27019`, the next Redis `6381`, and so on (the
+   ports in use are the `ports:` entries in `compose.yaml`).
 3. If it has floci init scripts, mount its `compose/floci/start.d` into floci
    under `/etc/floci/init/services/<service>`
 4. Add a health check to `start.sh` and rows to the tables above

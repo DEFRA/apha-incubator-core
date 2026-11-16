@@ -1,6 +1,6 @@
 # Starts the Node services with --inspect-brk: each waits for a debugger to attach
-# before running. Attach to localhost:9229 (backend), localhost:9230 (frontend)
-# or localhost:9231 (ingestion).
+# before running. Attach to localhost:9229 (backend), localhost:9230 (frontend),
+# localhost:9231 (ingestion) or localhost:9232 (backoffice).
 services:
   apha-risk-insights-backend:
     command: npm run dev:debug
@@ -9,4 +9,7 @@ services:
     command: npm run dev:debug
 
   apha-insights-ingestion:
+    command: npm run dev:debug
+
+  apha-insights-backoffice:
     command: npm run dev:debug
