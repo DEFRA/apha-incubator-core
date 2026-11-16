@@ -73,13 +73,14 @@ wait_for_health() {
 }
 
 if [ ${#compose_files[@]} -gt 0 ]; then
-  warn "Debug mode: services wait for a debugger on localhost:9229 (backend), 9230 (frontend) and 9231 (ingestion)"
+  warn "Debug mode: services wait for a debugger on localhost:9229 (backend), 9230 (frontend), 9231 (ingestion) and 9232 (backoffice)"
 else
   info "Waiting for services to be healthy"
   healthy=true
   wait_for_health apha-risk-insights-backend http://localhost:3001/health || healthy=false
   wait_for_health apha-risk-insights-frontend http://localhost:3000/health || healthy=false
   wait_for_health apha-insights-ingestion http://localhost:3002/health || healthy=false
+  wait_for_health apha-insights-backoffice http://localhost:3003/health || healthy=false
 fi
 
 cat <<EOF
@@ -89,11 +90,13 @@ ${BOLD}Services${RESET}
   Backend          http://localhost:3001
   Backend API docs http://localhost:3001/documentation
   Ingestion        http://localhost:3002
+  Backoffice       http://localhost:3003
 
 ${BOLD}Infrastructure${RESET}
   MongoDB          mongodb://localhost:27017 (backend)
   MongoDB          mongodb://localhost:27018 (ingestion)
-  Redis            localhost:6379
+  Redis            localhost:6379 (frontend)
+  Redis            localhost:6380 (backoffice)
   floci (AWS)      http://localhost:4566
 
 Stop with npm run stop, follow logs with npm run logs

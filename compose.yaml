@@ -35,6 +35,7 @@ services:
       - ${SERVICES_DIR:-..}/apha-risk-insights-backend/compose/floci/start.d:/etc/floci/init/services/apha-risk-insights-backend:ro
       - ${SERVICES_DIR:-..}/apha-risk-insights-frontend/compose/floci/start.d:/etc/floci/init/services/apha-risk-insights-frontend:ro
       - ${SERVICES_DIR:-..}/apha-insights-ingestion/compose/floci/start.d:/etc/floci/init/services/apha-insights-ingestion:ro
+      - ${SERVICES_DIR:-..}/apha-insights-backoffice/compose/floci/start.d:/etc/floci/init/services/apha-insights-backoffice:ro
     ports:
       - '4566:4566'
 
@@ -141,6 +142,41 @@ services:
     ports:
       - '27018:27017'
 
+  # --- apha-insights-backoffice ---------------------------------------------
+
+  apha-insights-backoffice:
+    extends:
+      file: ${SERVICES_DIR:-..}/apha-insights-backoffice/compose.yaml
+      service: apha-insights-backoffice
+    container_name: backoffice-development
+    links: !reset []
+    depends_on: !override
+      floci:
+        condition: service_healthy
+      apha-insights-backoffice-redis:
+        condition: service_healthy
+    environment:
+      <<: *aws-local
+      # The service defaults to 3000, which the frontend already uses
+      PORT: 3003
+    networks:
+      - apha-risk
+      - apha-insights-backoffice
+    ports:
+      - '3003:3003'
+      - '9232:9229'
+
+  apha-insights-backoffice-redis:
+    extends:
+      file: ${SERVICES_DIR:-..}/apha-insights-backoffice/compose.yaml
+      service: redis
+    container_name: backoffice-redis-1
+    networks: !override
+      apha-insights-backoffice:
+        aliases: [redis]
+    ports:
+      - '6380:6379'
+
 volumes:
   apha-risk-insights-backend-mongodb-data:
   apha-insights-ingestion-mongodb-data:
@@ -155,3 +191,5 @@ networks:
     name: apha-risk-insights-frontend-internal
   apha-insights-ingestion:
     name: apha-insights-ingestion-internal
+  apha-insights-backoffice:
+    name: apha-insights-backoffice-internal
