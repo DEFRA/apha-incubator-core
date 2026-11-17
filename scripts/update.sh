@@ -3,7 +3,8 @@
 # dependency changes are picked up.
 #
 # Repos with uncommitted changes, or on a branch other than the default, are
-# fetched but not pulled, so in-progress work is never touched.
+# fetched but not pulled, so in-progress work is never touched. For a repo on
+# another branch, the local default branch is still fast-forwarded.
 #
 # Usage: npm run update  (or npm run update:no-build)
 
@@ -15,7 +16,7 @@ for arg in "$@"; do
   case "$arg" in
     --no-build) build=false ;;
     -h | --help)
-      sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) die "Unknown option: $arg" ;;
@@ -35,7 +36,13 @@ for service in "${SERVICES[@]}"; do
     warn "$service has uncommitted changes, fetched only"
     skipped=1
   elif [ "$branch" != "$DEFAULT_BRANCH" ]; then
-    warn "$service is on '$branch', not '$DEFAULT_BRANCH', fetched only"
+    # Fast-forward the local default branch without touching the checkout, so
+    # it is current when the developer switches back to it
+    if git -C "$dir" fetch --quiet origin "$DEFAULT_BRANCH:$DEFAULT_BRANCH" 2>/dev/null; then
+      warn "$service is on '$branch': updated local '$DEFAULT_BRANCH', left the checkout alone"
+    else
+      warn "$service is on '$branch', not '$DEFAULT_BRANCH', fetched only"
+    fi
     skipped=1
   elif git -C "$dir" pull --ff-only --quiet; then
     ok "$service is up to date with origin/$DEFAULT_BRANCH"

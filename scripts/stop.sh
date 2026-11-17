@@ -2,7 +2,7 @@
 # Stops every service.
 #
 # Usage: npm run stop  (or npm run stop:clean)
-#   --clean  also delete volumes (wipes local MongoDB data)
+#   --clean  also delete volumes (wipes local MongoDB and floci data)
 
 # shellcheck source=scripts/lib.sh
 . "$(dirname "$0")/lib.sh"

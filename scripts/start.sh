@@ -96,7 +96,7 @@ ${BOLD}Infrastructure${RESET}
   Redis            localhost:6379
   floci (AWS)      http://localhost:4566
 
-Stop with npm run stop, follow logs with npm run logs
+Stop with npm run stop, follow logs with npm run logs, load sample data with npm run seed
 EOF
 
 if [ "$follow_logs" = true ]; then
