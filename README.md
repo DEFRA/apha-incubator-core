@@ -66,7 +66,8 @@ script supports `--help`, e.g. `npm start -- --help`.
 | `npm run stop`             | Stops everything                                                               |
 | `npm run stop:clean`       | Stops everything and deletes volumes (wipes local MongoDB and floci data)      |
 | `npm run restart`          | Stops then starts everything                                                   |
-| `npm run seed [-- options]` | Loads sample data: WAHIS fixtures into S3, then the ingestion transform (see [Sample data](#sample-data)) |
+| `npm run seed [-- options]` | Loads sample data: the real WAHIS fixtures and their transform, then six months of synthetic data. `--synthetic-only` skips the real part (see [Sample data](#sample-data)) |
+| `npm run seed:clear`       | Removes the synthetic data, and nothing else                                   |
 | `npm run status`           | Branch, uncommitted changes and ahead/behind for each repo, plus running containers |
 | `npm run logs [-- service...]` | Follows logs for every service, or the ones named                          |
 | `npm test [-- service...]` | Runs each service's dockerised tests (same as its `npm run docker:test`)       |
@@ -126,14 +127,27 @@ fails is reported in `npm run logs -- floci` and the rest still run.
 
 ### Sample data
 
-`npm start` uploads the ingestion service's WAHIS fixtures to
-`s3://apha-insights-ingestion-local/raw/wahis/`, using that service's own floci
-init script. `npm run seed` then runs its WAHIS transform, which writes one
-record per outbreak under `transformed/wahis-outbreak/`. Arguments after `--` go
-to the transform, e.g. `npm run seed -- --limit 5` or `-- --dry-run`.
+`npm start` leaves the stores empty. `npm run seed` fills them, in two parts:
 
-Both steps skip work that is already done, so `seed` is safe to rerun. To start
-again from nothing: `npm run stop:clean && npm start && npm run seed`.
+1. **A real sample.** It uploads the ingestion service's WAHIS fixtures to
+   `s3://apha-insights-ingestion-local/raw/wahis/`, using that service's own
+   seed script, then runs its WAHIS transform, which writes one record per
+   outbreak under `transformed/wahis-outbreak/`. `--limit 5` and `--dry-run`
+   go to the transform.
+2. **Synthetic data.** Six months of made-up risk assessments into the
+   backend's MongoDB, and WAHIS events into the ingestion bucket. Every
+   synthetic record is marked as synthetic, and `npm run seed:clear` removes
+   those records and nothing else. See
+   [docs/synthetic-data.md](./docs/synthetic-data.md) for what exists, how it
+   is marked, and the layout every service follows.
+
+`npm run seed -- --synthetic-only` skips the real sample, for demos and user
+research where nobody should mistake made-up data for real. On a stack that
+was seeded before, start from nothing first.
+
+Every step skips or replaces work that is already done, so `seed` is safe to
+rerun. To start again from nothing:
+`npm run stop:clean && npm start && npm run seed`.
 
 `start.sh` refuses to start if a service is already running from its own repo
 (for example via `npm run docker:up`), because its containers would clash on
