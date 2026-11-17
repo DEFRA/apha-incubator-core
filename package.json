@@ -19,6 +19,7 @@
     "stop:clean": "./scripts/stop.sh --clean",
     "restart": "npm run stop && npm run start",
     "seed": "./scripts/seed.sh",
+    "seed:clear": "./scripts/seed.sh --clear",
     "status": "./scripts/status.sh",
     "logs": "./scripts/logs.sh",
     "test": "./scripts/test.sh"
