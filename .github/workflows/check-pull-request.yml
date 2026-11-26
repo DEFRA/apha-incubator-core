@@ -1,0 +1,20 @@
+name: Check Pull Request
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+jobs:
+  journey-tests:
+    name: Run Journey Tests
+    runs-on: ubuntu-latest
+    steps:
+      # Starts the stack from this pull request, with main of every service,
+      # and runs the apha-risk-insights-e2e-tests suite against it
+      - uses: DEFRA/apha-risk-insights-e2e-tests/run-journey-tests@main

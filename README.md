@@ -69,6 +69,7 @@ script supports `--help`, e.g. `npm start -- --help`.
 | `npm run start:build`      | Rebuilds images, then starts everything                                        |
 | `npm run start:logs`       | Starts everything, then follows logs                                           |
 | `npm run start:debug`      | Starts node with `--inspect-brk`. Attach to 9229 (backend), 9230 (frontend), 9231 (ingestion) or 9232 (backoffice) |
+| `npm run start:ci`         | Starts production images built from each checkout, with no source mounted. This is what CI runs |
 | `npm run stop`             | Stops everything                                                               |
 | `npm run stop:clean`       | Stops everything and deletes volumes (wipes local MongoDB and floci data)      |
 | `npm run restart`          | Stops then starts everything                                                   |
@@ -145,6 +146,20 @@ again from nothing: `npm run stop:clean && npm start && npm run seed`.
 (for example via `npm run docker:up`), because its containers would clash on
 the shared network. Stop that stack first with `npm run docker:stop` in the
 service repo.
+
+### CI
+
+`compose.ci.yaml` layers on `compose.yaml` to run each service's `production`
+image, built from whatever is checked out in its repo, with no source mounted
+and `NODE_ENV=production`. `npm run start:ci` uses it, so you can reproduce a CI
+run locally. Afterwards, `npm start` goes back to the dev images.
+
+The journey tests in
+[apha-risk-insights-e2e-tests](https://github.com/DEFRA/apha-risk-insights-e2e-tests)
+use it in GitHub Actions: its `run-journey-tests` action checks out this repo and
+every service side by side, runs `./scripts/start.sh --ci`, then runs the suite.
+Each service's pull request workflow calls that action, and so does this repo's,
+so a change here is tested against every service before it merges.
 
 ## Adding a service
 
