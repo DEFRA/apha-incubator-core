@@ -154,12 +154,30 @@ image, built from whatever is checked out in its repo, with no source mounted
 and `NODE_ENV=production`. `npm run start:ci` uses it, so you can reproduce a CI
 run locally. Afterwards, `npm start` goes back to the dev images.
 
+Building every service takes a few minutes, mostly installing npm dependencies.
+`--published` skips that for services you aren't changing: it pulls the image
+CDP published from their `main` branch, `defradigital/<service>:latest` on
+Docker Hub, and builds only the rest.
+
+```sh
+# Build the backend from your checkout, pull everything else
+npm run start:ci -- --published=apha-risk-insights-frontend,apha-insights-ingestion,apha-insights-backoffice
+
+# Pull everything
+npm run start:ci -- --published=all
+```
+
+The published images are built for amd64, so on Apple Silicon Docker runs them
+under emulation. They work, just more slowly.
+
 The journey tests in
 [apha-risk-insights-e2e-tests](https://github.com/DEFRA/apha-risk-insights-e2e-tests)
 use it in GitHub Actions: its `run-journey-tests` action checks out this repo and
 every service side by side, runs `./scripts/start.sh --ci`, then runs the suite.
-Each service's pull request workflow calls that action, and so does this repo's,
-so a change here is tested against every service before it merges.
+It passes `--published` for every service checked out at `main`, so only the
+code under test is built. Each service's pull request workflow calls that
+action, and so does this repo's, so a change here is tested against every
+service before it merges.
 
 ## Adding a service
 
