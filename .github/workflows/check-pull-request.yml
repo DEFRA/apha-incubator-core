@@ -17,4 +17,4 @@ jobs:
     steps:
       # Starts the stack from this pull request, with main of every service,
       # and runs the apha-risk-insights-e2e-tests suite against it
-      - uses: DEFRA/apha-risk-insights-e2e-tests/run-journey-tests@main
+      - uses: DEFRA/apha-risk-insights-e2e-tests/run-journey-tests@f6809616b44f431de1b8ea41b763efe5100fbdfc # main
