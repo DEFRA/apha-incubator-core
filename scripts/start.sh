@@ -2,12 +2,16 @@
 # Starts every service and its dependencies on the apha-risk docker network,
 # then waits until each service answers its health check.
 #
-# Usage: npm start [-- --build --debug --ci --logs]
+# Usage: npm start [-- --build --debug --ci [--published=SERVICES] --logs]
 #   or npm run start:build, start:debug, start:ci, start:logs
 #   --build  rebuild images first (needed after package.json changes)
 #   --debug  start node with --inspect-brk; services wait for a debugger
 #   --ci     run production images built from each checkout, with no source
 #            mounted (compose.ci.yaml). Implies --build. This is what CI runs
+#   --published=SERVICES
+#            with --ci: pull the image CDP published from main
+#            (defradigital/<service>:latest) for these services instead of
+#            building them. Comma-separated service names, or "all"
 #   --logs   follow logs after starting
 
 # shellcheck source=scripts/lib.sh
@@ -18,14 +22,16 @@ compose_files=()
 follow_logs=false
 debug=false
 ci=false
+published_arg=""
 for arg in "$@"; do
   case "$arg" in
     --build) up_args+=(--build) ;;
     --debug) debug=true ;;
     --ci) ci=true ;;
+    --published=*) published_arg="${arg#--published=}" ;;
     --logs) follow_logs=true ;;
     -h | --help)
-      sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) die "Unknown option: $arg" ;;
@@ -33,10 +39,36 @@ for arg in "$@"; do
 done
 
 [ "$debug" = true ] && [ "$ci" = true ] && die "--debug and --ci can't be used together"
+[ -n "$published_arg" ] && [ "$ci" != true ] && die "--published only works with --ci"
 [ "$debug" = true ] && compose_files+=(-f "$ROOT_DIR/compose.debug.yaml")
+
+# In CI mode, split the services into those to pull from Docker Hub and those
+# to build from their checkout
+published=()
+to_build=()
 if [ "$ci" = true ]; then
   compose_files+=(-f "$ROOT_DIR/compose.ci.yaml")
-  up_args+=(--build)
+  if [ "$published_arg" = all ]; then
+    published=("${SERVICES[@]}")
+  elif [ -n "$published_arg" ]; then
+    IFS=, read -r -a published <<<"$published_arg"
+    for service in "${published[@]}"; do
+      case " ${SERVICES[*]} " in
+        *" $service "*) ;;
+        *) die "--published: unknown service $service. Expected: ${SERVICES[*]}" ;;
+      esac
+    done
+  fi
+  for service in "${SERVICES[@]}"; do
+    case " ${published[*]-} " in
+      *" $service "*)
+        # compose.ci.yaml reads the image name from CI_IMAGE_<SERVICE>
+        var="CI_IMAGE_$(echo "$service" | tr '[:lower:]-' '[:upper:]_')"
+        export "$var=defradigital/$service:latest"
+        ;;
+      *) to_build+=("$service") ;;
+    esac
+  done
 fi
 
 require_docker
@@ -67,8 +99,30 @@ for name in $(compose ${compose_files[@]+"${compose_files[@]}"} config | awk '/c
   ok "Removed stopped $name left by project $project"
 done
 
-info "Starting services"
 # The ${a[@]+...} form keeps bash 3.2 happy when the array is empty under set -u
+if [ "$ci" = true ]; then
+  # Build and pull explicitly, then start without building, so published
+  # services are never rebuilt. The pull runs in the background while the
+  # build runs, as neither needs the other. compose build with no services
+  # would build all
+  pull_pid=""
+  if [ ${#published[@]} -gt 0 ]; then
+    info "Pulling published images for ${published[*]}"
+    compose "${compose_files[@]}" pull --quiet "${published[@]}" &
+    pull_pid=$!
+  fi
+  if [ ${#to_build[@]} -gt 0 ]; then
+    info "Building ${to_build[*]}"
+    compose "${compose_files[@]}" build "${to_build[@]}"
+  fi
+  if [ -n "$pull_pid" ]; then
+    wait "$pull_pid" || die "Pulling the published images failed"
+    ok "Pulled published images"
+  fi
+  up_args=(up --detach --remove-orphans --no-build)
+fi
+
+info "Starting services"
 compose ${compose_files[@]+"${compose_files[@]}"} "${up_args[@]}"
 
 wait_for_health() {

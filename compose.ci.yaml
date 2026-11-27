@@ -3,6 +3,10 @@
 # journey tests in GitHub Actions, and locally with `npm run start:ci` to
 # reproduce a CI run.
 #
+# start.sh --published=<services> swaps a service's image for the one CDP
+# published from its main branch (defradigital/<service>:latest), through the
+# CI_IMAGE_* variables below, and pulls it instead of building it.
+#
 # Layered on compose.yaml, so networks, infrastructure and ports are unchanged.
 
 x-production: &production
@@ -15,7 +19,7 @@ services:
   apha-risk-insights-backend:
     build:
       target: production
-    image: apha-risk-insights-backend:ci
+    image: ${CI_IMAGE_APHA_RISK_INSIGHTS_BACKEND:-apha-risk-insights-backend:ci}
     volumes: !reset []
     environment:
       <<: *production
@@ -23,7 +27,7 @@ services:
   apha-risk-insights-frontend:
     build:
       target: production
-    image: apha-risk-insights-frontend:ci
+    image: ${CI_IMAGE_APHA_RISK_INSIGHTS_FRONTEND:-apha-risk-insights-frontend:ci}
     volumes: !reset []
     environment:
       <<: *production
@@ -36,7 +40,7 @@ services:
   apha-insights-ingestion:
     build:
       target: production
-    image: apha-insights-ingestion:ci
+    image: ${CI_IMAGE_APHA_INSIGHTS_INGESTION:-apha-insights-ingestion:ci}
     volumes: !reset []
     environment:
       <<: *production
@@ -44,7 +48,7 @@ services:
   apha-insights-backoffice:
     build:
       target: production
-    image: apha-insights-backoffice:ci
+    image: ${CI_IMAGE_APHA_INSIGHTS_BACKOFFICE:-apha-insights-backoffice:ci}
     volumes: !reset []
     environment:
       <<: *production
