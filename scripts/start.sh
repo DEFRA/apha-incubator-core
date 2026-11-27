@@ -102,14 +102,22 @@ done
 # The ${a[@]+...} form keeps bash 3.2 happy when the array is empty under set -u
 if [ "$ci" = true ]; then
   # Build and pull explicitly, then start without building, so published
-  # services are never rebuilt. compose build with no services would build all
+  # services are never rebuilt. The pull runs in the background while the
+  # build runs, as neither needs the other. compose build with no services
+  # would build all
+  pull_pid=""
+  if [ ${#published[@]} -gt 0 ]; then
+    info "Pulling published images for ${published[*]}"
+    compose "${compose_files[@]}" pull --quiet "${published[@]}" &
+    pull_pid=$!
+  fi
   if [ ${#to_build[@]} -gt 0 ]; then
     info "Building ${to_build[*]}"
     compose "${compose_files[@]}" build "${to_build[@]}"
   fi
-  if [ ${#published[@]} -gt 0 ]; then
-    info "Pulling published images for ${published[*]}"
-    compose "${compose_files[@]}" pull "${published[@]}"
+  if [ -n "$pull_pid" ]; then
+    wait "$pull_pid" || die "Pulling the published images failed"
+    ok "Pulled published images"
   fi
   up_args=(up --detach --remove-orphans --no-build)
 fi
