@@ -2,10 +2,12 @@
 # Starts every service and its dependencies on the apha-risk docker network,
 # then waits until each service answers its health check.
 #
-# Usage: npm start [-- --build --debug --logs]
-#   or npm run start:build, start:debug, start:logs
+# Usage: npm start [-- --build --debug --ci --logs]
+#   or npm run start:build, start:debug, start:ci, start:logs
 #   --build  rebuild images first (needed after package.json changes)
 #   --debug  start node with --inspect-brk; services wait for a debugger
+#   --ci     run production images built from each checkout, with no source
+#            mounted (compose.ci.yaml). Implies --build. This is what CI runs
 #   --logs   follow logs after starting
 
 # shellcheck source=scripts/lib.sh
@@ -14,18 +16,28 @@
 up_args=(up --detach --remove-orphans)
 compose_files=()
 follow_logs=false
+debug=false
+ci=false
 for arg in "$@"; do
   case "$arg" in
     --build) up_args+=(--build) ;;
-    --debug) compose_files=(-f "$ROOT_DIR/compose.debug.yaml") ;;
+    --debug) debug=true ;;
+    --ci) ci=true ;;
     --logs) follow_logs=true ;;
     -h | --help)
-      sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) die "Unknown option: $arg" ;;
   esac
 done
+
+[ "$debug" = true ] && [ "$ci" = true ] && die "--debug and --ci can't be used together"
+[ "$debug" = true ] && compose_files+=(-f "$ROOT_DIR/compose.debug.yaml")
+if [ "$ci" = true ]; then
+  compose_files+=(-f "$ROOT_DIR/compose.ci.yaml")
+  up_args+=(--build)
+fi
 
 require_docker
 require_services_cloned
@@ -45,7 +57,7 @@ fi
 # left by a service's own compose project blocks ours. Compose won't adopt a
 # container from another project, so remove it; the image is kept, so the
 # replacement is created without a rebuild.
-for name in $(compose config | awk '/container_name:/ { print $2 }'); do
+for name in $(compose ${compose_files[@]+"${compose_files[@]}"} config | awk '/container_name:/ { print $2 }'); do
   project="$(docker ps --all --filter "name=^/${name}$" --format '{{.Label "com.docker.compose.project"}}')"
   [ -z "$project" ] || [ "$project" = "apha-risk-insights" ] && continue
   if [ "$(docker inspect --format '{{.State.Running}}' "$name")" = true ]; then
@@ -72,7 +84,7 @@ wait_for_health() {
   ok "$name is healthy"
 }
 
-if [ ${#compose_files[@]} -gt 0 ]; then
+if [ "$debug" = true ]; then
   warn "Debug mode: services wait for a debugger on localhost:9229 (backend), 9230 (frontend), 9231 (ingestion) and 9232 (backoffice)"
 else
   info "Waiting for services to be healthy"

@@ -15,6 +15,7 @@
     "start:build": "./scripts/start.sh --build",
     "start:logs": "./scripts/start.sh --logs",
     "start:debug": "./scripts/start.sh --debug",
+    "start:ci": "./scripts/start.sh --ci",
     "stop": "./scripts/stop.sh",
     "stop:clean": "./scripts/stop.sh --clean",
     "restart": "npm run stop && npm run start",

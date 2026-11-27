@@ -1,0 +1,54 @@
+# Runs the stack the way CI does: each service's production image, built from
+# whatever is checked out in its repo, with no source mounted. Used by the
+# journey tests in GitHub Actions, and locally with `npm run start:ci` to
+# reproduce a CI run.
+#
+# Layered on compose.yaml, so networks, infrastructure and ports are unchanged.
+
+x-production: &production
+  NODE_ENV: production
+  LOG_FORMAT: ecs
+  # No CDP trust store certificates outside CDP
+  ENABLE_SECURE_CONTEXT: false
+
+services:
+  apha-risk-insights-backend:
+    build:
+      target: production
+    image: apha-risk-insights-backend:ci
+    volumes: !reset []
+    environment:
+      <<: *production
+
+  apha-risk-insights-frontend:
+    build:
+      target: production
+    image: apha-risk-insights-frontend:ci
+    volumes: !reset []
+    environment:
+      <<: *production
+      # Local redis has no TLS and is not a cluster. compose.yaml already sets
+      # these, but production defaults flip them, so keep them explicit here
+      REDIS_TLS: false
+      USE_SINGLE_INSTANCE_CACHE: true
+      SESSION_COOKIE_SECURE: false
+
+  apha-insights-ingestion:
+    build:
+      target: production
+    image: apha-insights-ingestion:ci
+    volumes: !reset []
+    environment:
+      <<: *production
+
+  apha-insights-backoffice:
+    build:
+      target: production
+    image: apha-insights-backoffice:ci
+    volumes: !reset []
+    environment:
+      <<: *production
+      # Same as the frontend: local redis has no TLS and is not a cluster
+      REDIS_TLS: false
+      USE_SINGLE_INSTANCE_CACHE: true
+      SESSION_COOKIE_SECURE: false
